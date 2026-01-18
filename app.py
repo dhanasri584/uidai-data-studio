@@ -15,11 +15,13 @@ uploaded_files = st.file_uploader(
 )
 
 if uploaded_files:
+    # Load and merge CSVs
     df = pd.concat([pd.read_csv(f) for f in uploaded_files])
 
     st.subheader("Raw Data Preview")
     st.dataframe(df.head())
 
+    # ---------- STATE STANDARDIZATION ----------
     STANDARD_STATES = [
         "ANDHRA PRADESH", "ODISHA", "DELHI",
         "MAHARASHTRA", "TAMIL NADU", "KARNATAKA"
@@ -30,21 +32,22 @@ if uploaded_files:
         return match[0] if match else x
 
     # Auto-detect state column
-possible_state_cols = [col for col in df.columns if "state" in col.lower()]
+    possible_state_cols = [col for col in df.columns if "state" in col.lower()]
 
-if not possible_state_cols:
-    st.error("❌ No state column found in uploaded CSV")
-    st.stop()
+    if not possible_state_cols:
+        st.error("❌ No state column found in uploaded CSV")
+        st.stop()
 
-state_col = possible_state_cols[0]
-st.success(f"Using state column: {state_col}")
-df["State_Clean"] = df[state_col].apply(clean_state)
+    state_col = possible_state_cols[0]
+    st.success(f"Using state column: {state_col}")
 
+    df["State_Clean"] = df[state_col].apply(clean_state)
 
-st.subheader("State Name Standardization")
-st.dataframe(df[["State", "State_Clean"]].drop_duplicates())
+    st.subheader("🧹 State Name Standardization")
+    st.dataframe(df[[state_col, "State_Clean"]].drop_duplicates())
 
-    clean_count = (df["State"] == df["State_Clean"]).sum()
+    # ---------- PIE CHART ----------
+    clean_count = (df[state_col].str.upper() == df["State_Clean"]).sum()
     changed_count = len(df) - clean_count
 
     pie_df = pd.DataFrame({
@@ -52,29 +55,51 @@ st.dataframe(df[["State", "State_Clean"]].drop_duplicates())
         "Count": [clean_count, changed_count]
     })
 
-    fig1 = px.pie(pie_df, names="Type", values="Count",
-                  title="Data Standardization Impact")
+    fig1 = px.pie(
+        pie_df,
+        names="Type",
+        values="Count",
+        title="Data Standardization Impact"
+    )
+
     st.plotly_chart(fig1, use_container_width=True)
 
-    df["Month"] = pd.to_datetime(df["Month"], errors="coerce")
-    df = df.dropna(subset=["Month"])
+    # ---------- DATE & TREND ----------
+    possible_month_cols = [col for col in df.columns if "month" in col.lower()]
 
-    trend = df.groupby(["Month", "State_Clean"])["Enrolment"].sum().reset_index()
+    if not possible_month_cols:
+        st.error("❌ No month column found")
+        st.stop()
+
+    month_col = possible_month_cols[0]
+    df[month_col] = pd.to_datetime(df[month_col], errors="coerce")
+    df = df.dropna(subset=[month_col])
+
+    possible_enrol_cols = [col for col in df.columns if "enrol" in col.lower()]
+
+    if not possible_enrol_cols:
+        st.error("❌ No enrolment column found")
+        st.stop()
+
+    enrol_col = possible_enrol_cols[0]
+
+    trend = df.groupby([month_col, "State_Clean"])[enrol_col].sum().reset_index()
 
     state = st.selectbox("Select State", trend["State_Clean"].unique())
 
     fig2 = px.line(
         trend[trend["State_Clean"] == state],
-        x="Month", y="Enrolment",
+        x=month_col,
+        y=enrol_col,
         title=f"Monthly Enrolment Trend – {state}"
     )
 
     st.plotly_chart(fig2, use_container_width=True)
 
-    st.subheader("Insights")
+    # ---------- INSIGHTS ----------
+    st.subheader("🔍 Insights")
     st.markdown("""
     • Multiple state naming formats fragment enrolment analysis  
     • Auto-standardization improves aggregation accuracy  
     • Clean timelines enable reliable trend interpretation  
     """)
-
