@@ -41,8 +41,8 @@ st.success(f"Using state column: {state_col}")
 df["State_Clean"] = df[state_col].apply(clean_state)
 
 
-    st.subheader("State Name Standardization")
-    st.dataframe(df[["State", "State_Clean"]].drop_duplicates())
+st.subheader("State Name Standardization")
+st.dataframe(df[["State", "State_Clean"]].drop_duplicates())
 
     clean_count = (df["State"] == df["State_Clean"]).sum()
     changed_count = len(df) - clean_count
