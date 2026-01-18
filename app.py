@@ -29,7 +29,17 @@ if uploaded_files:
         match = get_close_matches(str(x).upper(), STANDARD_STATES, n=1, cutoff=0.7)
         return match[0] if match else x
 
-    df["State_Clean"] = df["State"].apply(clean_state)
+    # Auto-detect state column
+possible_state_cols = [col for col in df.columns if "state" in col.lower()]
+
+if not possible_state_cols:
+    st.error("❌ No state column found in uploaded CSV")
+    st.stop()
+
+state_col = possible_state_cols[0]
+st.success(f"Using state column: {state_col}")
+df["State_Clean"] = df[state_col].apply(clean_state)
+
 
     st.subheader("State Name Standardization")
     st.dataframe(df[["State", "State_Clean"]].drop_duplicates())
